@@ -13,8 +13,8 @@ class GraphApp:
     def __init__(self):
         self.window = Tk()
         self.window.resizable(True, True)
-        self.window.geometry('800x720+470+130')
-        self.window.title('DFS/BFS')
+        self.window.geometry('800x720+420+110')
+        self.window.title('Графы')
         self.window.config(bg='#1a1a1a')
 
         self.text_1 = Text(self.window, font=('Arial', 15, 'bold'))
@@ -62,8 +62,12 @@ class GraphApp:
         self.e1.place(x=650, y=10, width=100, height=50)
         self.vert = 0
         self.start=0
-        self.end = 1
-
+        self.end = 3
+        self.adjacency_matrix=[[0,2,3,0,20], 
+                               [2,0,5,3,0], 
+                               [3,5,0,1,7], 
+                               [0,3,1,0,7],
+                               [20,0,7,7,0]] 
 
     def vertex(self):
         self.vert = int(self.text_3.get('1.0', 'end-1c').replace(' ', ''))
@@ -77,19 +81,17 @@ class GraphApp:
         except AttributeError: 
             pass                
         self.output_frame.delete('1.0', END)
-        text = "0,3,2,10\n3,0,4,0\n2,4,0,2\n10,0,2,0"#self.text_1.get('1.0', 'end-1c').replace(' ', '')
+        text = self.text_1.get('1.0', 'end-1c').replace(' ', '')
         self.adjacency_matrix=[]
         for i in text.split('\n'):
             row=[]
             for j in i.split(','):
                 row.append(int(j))
             self.adjacency_matrix.append(row)
-        #self.adjacency_matrix = np.matrix([[int(j) for j in i] for i in text.split('\n')])
+        self.adjacency_matrix = np.matrix([[int(j) for j in i] for i in text.split('\n')])
         self.nparr= np.array(self.adjacency_matrix)
         # Создим сетевой график
         self.G = nx.from_numpy_array(self.nparr, create_using=nx.DiGraph())
-
-        # Создим фигуру и нарисуем на ней график
         fig = plt.figure(figsize=(2, 2))
         labels = nx.get_edge_attributes(self.G, "weight")
         pos = nx.spring_layout(self.G)
@@ -131,7 +133,7 @@ class GraphApp:
             traversal.append(vertex)
 
             # Найдем индексы соседних вершин, используя матрицу смежности
-            neighbors = np.where(self.nparr[vertex] == 1)[0]
+            neighbors = np.where(self.nparr[vertex] != 0)[0]
             neighbors = neighbors[::-1]
             # Рекурсивно посетим все соседние
             for neighbor in neighbors:
@@ -143,7 +145,7 @@ class GraphApp:
             if not visited[vertex]:
                 dfs_recursive(vertex)
         self.text_2.delete('1.0', END)
-        self.text_2.insert('insert', f'Длина маршрута в глубину-{len(traversal)} :' + str(traversal) + '\n')
+        self.text_2.insert('insert', f'Длина маршрута в глубину - {len(traversal)} :' + str(traversal) + '\n')
 
     def bfs(self):
         n = self.nparr.shape[0]  # Количество вершин в графе
@@ -166,7 +168,7 @@ class GraphApp:
                 traversal.append(current_vertex)
 
                 # Найдем индексы соседних вершин, используя матрицу смежности
-                neighbors = np.where(self.nparr[current_vertex] == 1)[0]
+                neighbors = np.where(self.nparr[current_vertex] != 0)[0]
 
                 # Поставим в очередь непрошеных соседей
                 for neighbor in neighbors:
@@ -179,7 +181,7 @@ class GraphApp:
             if not visited[vertex]:
                 bfs_start(vertex)
         self.text_2.delete('1.0', END)
-        self.text_2.insert('insert', f'Длина маршрута в ширину-{len(traversal)} :' + str(traversal) + '\n')
+        self.text_2.insert('insert', f'Длина маршрута в ширину - {len(traversal)} :' + str(traversal) + '\n')
 
     def get_link_v(self, v):
         a=[]
@@ -197,57 +199,159 @@ class GraphApp:
                 amin=i
         return amin
     
-    def dijxtra(self, start, end):
-        N = len(self.adjacency_matrix)
-        T = [math.inf]*N
-        visited = {start}
-        T[start]=0
-        while start!=-1:
-            for j in self.get_link_v(start):
-                if j not in visited:
-                    weight=T[j]+self.adjacency_matrix[start][j]
-                    #print(weight)
-                    if weight<T[j]:
-                        T[j]=weight
-            start=self.arg_min(T,visited)
-            print(start)
-            if start>0:
-                visited.add(start)
-        print(visited)
-        self.text_2.delete('1.0', END)
-        self.text_2.insert('insert', np.array2string(np.array(T)))
-
-    def floyd(self):
-        def get_path(P, u, v):
-            path = [u]
-            while u != v:
-                u = P[u][v]
-                path.append(u)
-
-            return path
-        N = len(self.adjacency_matrix)
+    def dijxtra(self):
+        n = len(self.adjacency_matrix)
+        t = [math.inf]*n   # последняя строка таблицы
+        matr=[]
+        v = 0       # стартовая вершина (нумерация с нуля)
+        s = {v}     # просмотренные вершины
+        t[v] = 0    # нулевой вес для стартовой вершины
+        m = [0]*n   # оптимальные связи между вершинами
         matr=self.adjacency_matrix
-        for i in range(N):
-            for j in range(N):
+        longiness=0
+        for i in range(n):
+            for j in range(n):
                 if matr[i][j]==0:
                     matr[i][j]=math.inf
-        P = [[v for v in range(N)] for u in range(N)]       # начальный список предыдущих вершин для поиска кратчайших маршрутов
-        for k in range(N):
-            for i in range(N):
-                for j in range(N):
-                    d = matr[i][k] + matr[k][j]
-                    if matr[i][j] > d:
-                        matr[i][j] = d
-                        P[i][j] = k    
-            print(P)
-        
+        while v != -1:         
+            for j, dw in enumerate(matr[v]):   
+                if j not in s:           
+                    w = t[v] + dw
+                    if w < t[j]:
+                        t[j] = w
+                        m[j] = v
+                        
+
+            v = self.arg_min(t, s) 
+            
+            if v >= 0:                    # выбрана очередная вершина
+                s.add(v)        
         start = int(self.e1.get().replace(' ', '').split(',')[0])
         end = int(self.e1.get().replace(' ', '').split(',')[1])
-        path = get_path(P, end, start)
-        path.reverse()
-        print(path)
+        longiness = t[end]
+        p = [end]
+        while end != start:
+            end = m[p[-1]]
+            p.append(end)
+
+        p.reverse()
         self.text_2.delete('1.0', END)
-        self.text_2.insert('insert', str('->'.join(str(x) for x in path)))
+        self.text_2.insert('insert', np.array2string(np.array(p)))
+        self.text_2.insert('insert', '\nДлина пути - '+str(longiness))
+
+   
+        
+    def floyd(self):
+        n = len(self.adjacency_matrix)
+        start = int(self.e1.get().replace(' ', '').split(',')[0])
+        end = int(self.e1.get().replace(' ', '').split(',')[1])
+        s={start}
+        matrix=self.adjacency_matrix
+        for i in range(n):
+            for j in range(n):
+                if matrix[i][j]==0:
+                    matrix[i][j]=math.inf
+                else:
+                    matrix[i][j]=self.adjacency_matrix[i][j]
+        for k in range(len(matrix)): 
+            for i in range(len(matrix)):
+                for j in range(len(matrix)):
+                    if i==start and j==end:
+                        if matrix[i][j]< matrix[i][k] + matrix[k][j]:
+                            s.add(j)
+                        else:
+                            s.add(k)
+                    matrix[i][j] = min(matrix[i][j], matrix[i][k] + matrix[k][j])
+        self.text_2.delete('1.0', END)
+        print(s)
+        longiness =matrix[start][end]
+        self.text_2.insert('insert', 'Длина пути - '+str(longiness)+'\n')
+        #self.text_2.insert('insert', 'Пути - '+str(s)+'\n')
+        self.text_2.insert('insert', str('\n'.join(str(x) for x in matrix)))
+        return matrix
+       
+
+    def ford(self):
+        def get_max_vertex(k, V, S):
+            m = 0   # наименьшее допустимое значение
+            v = -1
+            for i, w in enumerate(V[k]):
+                if i in S:
+                    continue
+
+            if w[2] == 1:   # движение по стрелке
+                if m < w[0]:
+                    m = w[0]
+                    v = i
+            else:           # движение против стрелки
+                if m < w[1]:
+                    m = w[1]
+                    v = i
+
+            return v
+
+
+        def get_max_flow(T):
+            w = [x[0] for x in T]
+            return min(*w)
+
+
+        def updateV(V, T, f):
+            for t in T:
+                if t[1] == -1:  # это исток
+                    continue
+
+                sgn = V[t[2]][t[1]][2]  # направление движения
+
+                # меняем веса в таблице для (i,j) и (j,i)
+                V[t[1]][t[2]][0] -= f * sgn
+                V[t[1]][t[2]][1] += f * sgn
+
+                V[t[2]][t[1]][0] -= f * sgn
+                V[t[2]][t[1]][1] += f * sgn
+
+
+        V = [[[0,0,1], [20,0,1], [30,0,1], [10,0,1], [0,0,1]],
+            [[20,0,-1], [0,0,1], [40,0,1], [0,0,1], [30,0,1]],
+            [[30,0,-1], [40,0,-1], [0,0,1], [10,0,1], [20,0,1]],
+            [[10,0,-1], [0,0,1], [10,0,-1], [0,0,1], [20,0,1]],
+            [[0,0,1], [30,0,-1], [20,0,-1], [20,0,-1], [0,0,1]],
+        ]
+
+        N = len(V)  # число вершин в графе
+        init = 0    # вершина истока (нумерация с нуля)
+        end = 4     # вершина стока
+        Tinit = (math.inf, -1, init)      # первая метка маршруто (a, from, vertex)
+        f = []      # максимальные потоки найденных маршрутов
+
+        j = init
+        while j != -1:
+            k = init  # стартовая вершина (нумерация с нуля)
+            T = [Tinit]  # метки маршрута
+            S = {init}  # множество просмотренных вершин
+
+            while k != end:     # пока не дошли до стока
+                j = get_max_vertex(k, V, S)  # выбираем вершину с наибольшей пропускной способностью
+                if j == -1:         # если следующих вершин нет
+                    if k == init:      # и мы на истоке, то
+                        break          # завершаем поиск маршрутов
+                    else:           # иначе, переходим к предыдущей вершине
+                        k = T.pop()[2]
+                        continue
+
+                c = V[k][j][0] if V[k][j][2] == 1 else V[k][j][1]   # определяем текущий поток
+                T.append((c, j, k))    # добавляем метку маршрута
+                S.add(j)            # запоминаем вершину как просмотренную
+
+                if j == end:    # если дошди до стока
+                    f.append(get_max_flow(T))     # находим максимальную пропускную способность маршрута
+                    updateV(V, T, f[-1])        # обновляем веса дуг
+                    break
+
+                k = j
+
+        F = sum(f)
+        print(f"Максимальный поток равен: {F}")
 
 if __name__ == "__main__":
     app = GraphApp()
